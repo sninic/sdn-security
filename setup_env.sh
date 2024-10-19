@@ -45,7 +45,7 @@ cd ~/
 # Install Ryu SDN Controller
 git clone https://github.com/faucetsdn/ryu.git
 cd ryu
-sudo python3 ./setup.py install
+sudo pip3 install .
 
 # Verify the installation
 ryu-manager --version
