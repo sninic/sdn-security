@@ -7,9 +7,6 @@ sudo apt install -y iperf iperf3 nmap hping3 net-tools
 # Openssh Server
 sudo apt install -y openssh-server
 
-# Wireshark
-sudo apt install -y wireshark
-
 # zsh
 ZSHRC="$HOME/.zshrc"
 sudo apt install -y zsh
