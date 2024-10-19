@@ -2,9 +2,12 @@
 SDN project for CS-460: Security Laboratory
 
 ## VM Setting
-- Operating System: Ubuntu 20.04
+- Operating System: **Ubuntu 20.04**
+  VM image:
+  - AMD64: https://releases.ubuntu.com/focal/
+  - ARM64 (For Apple M-series chips): https://cdimage.ubuntu.com/releases/focal/release/
 - Type: Linux
-- Version: Ubuntu **20.04** (64-bit)
+- Version: Ubuntu **20.04 (64-bit)**
 - RAM Allocation: Allocate 4096 MB (4 GB) or more
 - Storage Allocation: Create a virtual hard disk with at least 30 GB of storage
 - Processors: Assign at least 2 CPU cores for better performance
