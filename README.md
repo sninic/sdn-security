@@ -1,4 +1,4 @@
-# sdn-security-project
+# sdn-security
 SDN project for CS-460: Security Laboratory
 
 ## VM Setting
