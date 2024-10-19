@@ -17,6 +17,16 @@ SDN project for CS-460: Security Laboratory
   - Graphics Controller: Choose VMSVGA.
   - Enable 3D Acceleration: Optionally check this for improved graphics performance.
 
+### Setup Mininet & Ryu Controller
+```
+bash setup_env.sh
+```
+
+### Setup Zsh (Optional)
+```
+bash setup_zsh.sh
+```
+
 ## Test Environment Setup
 To start Mininet with Ryu Controller, open 2 terminals, specify port 6653 for Mininet & Ryu Controller to listen on
 
