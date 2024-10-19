@@ -49,3 +49,5 @@ sudo pip3 install .
 
 # Verify the installation
 ryu-manager --version
+
+cd ~/
