@@ -40,13 +40,12 @@ sudo ./util/install.sh -a
 # Test Mininet
 sudo mn --test pingall
 
+cd ~/
+
 # Install Ryu SDN Controller
-sudo pip3 install ryu
+git clone https://github.com/faucetsdn/ryu.git
+cd ryu
+sudo python3 ./setup.py install
 
 # Verify the installation
 ryu-manager --version
-
-mkdir -p ~/sdn_project/ryu_apps
-cd ~/sdn_project/ryu_apps
-
-
