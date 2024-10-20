@@ -40,8 +40,8 @@ sudo mn --controller=remote,ip=127.0.0.1,port=6653 --switch=ovs,protocols=OpenFl
 ryu-manager --verbose --ofp-tcp-listen-port 6653 ~/sdn-security-project/src/simple_switch_13.py
 ```
 
-3. Try some commands to test if the network is reachable for all the hosts (h1, h2, and h3) in Mininet
-For example:
+3. Try some commands to test if the network is reachable for all the hosts (h1, h2, and h3) in Mininet.
+   For example:
 ```
 p1 ping p2
 p1 ping p3
