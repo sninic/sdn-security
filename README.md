@@ -42,7 +42,7 @@ ryu-manager --verbose --ofp-tcp-listen-port 6653 ~/sdn-security-project/src/simp
 
 3. Try some commands to test if the network is reachable for all the hosts (h1, h2, and h3) in Mininet.
 
-For example:
+  For example:
 ```
 p1 ping p2
 p1 ping p3
