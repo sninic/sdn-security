@@ -37,7 +37,7 @@ sudo mn --controller=remote,ip=127.0.0.1,port=6653 --switch=ovs,protocols=OpenFl
 
 2. Run Ryu Controller to bring up the virtual switch on the 2nd terminal
 ```
-ryu-manager --verbose --ofp-tcp-listen-port 6653 ~/sdn-security-project/src/simple_switch_13.py
+ryu-manager --verbose --ofp-tcp-listen-port 6653 ~/sdn-security/src/simple_switch_13.py
 ```
 
 3. Try some commands to test if the network is reachable for all the hosts (h1, h2, and h3) in Mininet.
