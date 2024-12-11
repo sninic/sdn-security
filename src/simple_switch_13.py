@@ -135,7 +135,7 @@ class IPDoSDetectionSwitch(app_manager.RyuApp):
                 self.logger.warning("DoS attack detected from %s (packets in last interval: %d)", src_ip, delta)
                 self.mitigate_attack(ev.msg.datapath, src_ip)
             elif src_ip in self.malicious_ips:
-                self.logger.warning("Drop packets from previous recorded malicious IP: %s (packets in last interval: %d)", src_ip, delta)
+                self.logger.warning("Drop packets from previously recorded malicious IP: %s (packets in last interval: %d)", src_ip, delta)
             else:
                 self.logger.info("Traffic from %s below threshold (delta=%d)", src_ip, delta)
 
