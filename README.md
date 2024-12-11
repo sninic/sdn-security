@@ -67,5 +67,5 @@ Installing drop rule for IP 10.0.0.3
 
 ...
 
-Drop packets from previous recorded malicious IP: 10.0.0.3 (packets in last interval: 6386467)
+Drop packets from previously recorded malicious IP: 10.0.0.3 (packets in last interval: 6386467)
 ```
