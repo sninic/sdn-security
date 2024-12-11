@@ -32,7 +32,7 @@ To start Mininet with Ryu Controller, open 2 terminals, specify port 6653 for Mi
 
 1. Run Mininet on the 1st terminal
 ```
-sudo mn --controller=remote,ip=127.0.0.1,port=6653 --switch=ovs,protocols=OpenFlow13 --topo=single,3
+sudo -E mn --controller=remote,ip=127.0.0.1,port=6653 --switch=ovs,protocols=OpenFlow13 --topo=single,3
 ```
 
 2. Run Ryu Controller to bring up the virtual switch on the 2nd terminal
@@ -47,4 +47,25 @@ p1 ping p2
 p1 ping p3
 p3 ping p2
 pingall
+```
+
+## Test DoS attack detection & mitigation
+In the mininet, open a new terminal with host `h3 (10.0.0.3)`
+```
+mininet> xterm h3
+```
+
+Launch the DoS attack in `h3` terminal against `h1 (10.0.0.1)`
+```
+hping3 -S --flood -p 80 10.0.0.1
+```
+
+You should see something like the below in Ryu Controller:
+```
+DoS attack detected from 10.0.0.3 (packets in last interval: 268947)
+Installing drop rule for IP 10.0.0.3
+
+...
+
+Drop packets from previous recorded malicious IP: 10.0.0.3 (packets in last interval: 6386467)
 ```
