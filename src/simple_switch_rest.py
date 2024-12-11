@@ -23,12 +23,13 @@ class SimpleSwitch13REST(app_manager.RyuApp):
     POLL_INTERVAL = 5
 
     # Port scan detection parameters
-    PORT_SCAN_THRESHOLD = 10  # More than 10 distinct ports within the window triggers alert
+    PORT_SCAN_THRESHOLD = 10  # More than 10 distinct ports in the window triggers alert
     PORT_SCAN_WINDOW = 10     # 10 seconds
 
-    # DoS detection parameters
-    DOS_THRESHOLD = 100       # More than 100 SYN packets in the window triggers a DOS alert
-    DOS_WINDOW = 5            # 5 seconds window
+    # DoS detection parameters: Just illustrative thresholds
+    DOS_THRESHOLD_PACKETS = 10000
+    DOS_THRESHOLD_BYTES = 1000000
+    DOS_WINDOW = 10  # 10 seconds window
 
     _CONTEXTS = {
         'wsgi': WSGIApplication
@@ -44,15 +45,14 @@ class SimpleSwitch13REST(app_manager.RyuApp):
         self.flow_stats_data = {}
         self.port_stats_data = {}
 
-        # Port scan tracking: {src_ip: {"ports": set(), "start_time": t, "detected": bool}}
-        self.scan_tracker = {}
+        # Tracking attacks
+        self.scan_tracker = {}  # {src_ip: {"ports": set(), "start_time": t, "detected": bool}}
         self.scan_alert_count = 0
-        self.scan_events = []
+        self.scan_events = []   # [{"time":..., "src_ip":..., "victim_ip":...}]
 
-        # DOS tracking: {src_ip: {"count": int, "start_time": t, "detected": bool}}
-        self.dos_tracker = {}
+        self.dos_tracker = {}   # {src_ip: {"packets": int, "bytes": int, "start_time": t, "detected": bool}}
         self.dos_alert_count = 0
-        self.dos_events = []
+        self.dos_events = []    # [{"time":..., "src_ip":..., "victim_ip":...}]
 
         # Hosts that have been blocked due to attacks
         self.blocked_hosts = set()
@@ -67,9 +67,6 @@ class SimpleSwitch13REST(app_manager.RyuApp):
         self.monitor_thread = hub.spawn(self._monitor)
 
     def reset_api_data(self):
-        """
-        Reset all stored API data to ensure endpoints start clean when the controller restarts.
-        """
         self.logger.info("Resetting API data to initial state.")
         self.flow_stats_data = {}
         self.port_stats_data = {}
@@ -125,10 +122,9 @@ class SimpleSwitch13REST(app_manager.RyuApp):
         self.logger.warning("Blocking host %s due to detected attack", src_ip)
         parser = datapath.ofproto_parser
         match = parser.OFPMatch(eth_type=0x0800, ipv4_src=src_ip)
-        # No actions => Drop
+        self.blocked_hosts.add(src_ip)
         actions = []
-        # A high priority flow to drop all packets from this IP
-        self.add_flow(datapath, priority=100, match=match, actions=actions, hard_timeout=0, idle_timeout=0)
+        self.add_flow(datapath, priority=100, match=match, actions=actions)
 
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
@@ -170,30 +166,40 @@ class SimpleSwitch13REST(app_manager.RyuApp):
     def flow_stats_reply_handler(self, ev):
         """
         Handler for flow stats reply: store them for the API.
+        Only display flows that have an ipv4_src field (filter out empty matches).
         """
         dpid = ev.msg.datapath.id
         body = ev.msg.body
         flows = []
         for stat in body:
+            ipv4_src = stat.match.get('ipv4_src')
+            if ipv4_src is None:
+                # Skip flows with no ipv4_src (e.g., table-miss or non-IPv4)
+                continue
+
             flow_info = {
-                "match": str(stat.match),
+                "ipv4_src": ipv4_src,
                 "packet_count": stat.packet_count,
                 "byte_count": stat.byte_count,
                 "duration_sec": stat.duration_sec,
                 "duration_nsec": stat.duration_nsec
             }
             flows.append(flow_info)
+
         self.flow_stats_data[dpid] = flows
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def port_stats_reply_handler(self, ev):
         """
         Handler for port stats reply: store them for the API.
+        Filter out the local port (4294967294).
         """
         dpid = ev.msg.datapath.id
         body = ev.msg.body
         ports = []
         for stat in body:
+            if stat.port_no == 4294967294:  # skip local port
+                continue
             port_info = {
                 "port_no": stat.port_no,
                 "rx_packets": stat.rx_packets,
@@ -236,29 +242,26 @@ class SimpleSwitch13REST(app_manager.RyuApp):
         else:
             out_port = ofproto.OFPP_FLOOD
 
-        # Just forward as a learning switch for now
         actions = [parser.OFPActionOutput(out_port)]
 
-        # Extract IP/TCP/UDP for detection
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
+
+        # Check if host is blocked
         if ip_pkt and ip_pkt.src not in self.blocked_hosts:
-            tcp_pkt = pkt.get_protocol(tcp.tcp)
-            # We'll not consider UDP for DOS or port scan detection since it can cause victim to appear as attacker.
-            
-            # Only consider TCP packets with SYN set for both port scan and DoS detection.
-            # SYN flag check:
+            # SYN check
             is_syn = False
             if tcp_pkt and (tcp_pkt.bits & tcp.TCP_SYN):
                 is_syn = True
 
-            # Detect DoS only if SYN is set (attacker initiating connections)
-            if is_syn:
-                self.detect_dos(dpid, ip_pkt.src)
-
-            # Port scan detection also only if SYN:
+            # If SYN, consider for DoS and port scan detection
             if is_syn and tcp_pkt:
+                attacker_ip = ip_pkt.src
+                victim_ip = ip_pkt.dst
                 dst_port = tcp_pkt.dst_port
-                self.detect_port_scan(dpid, ip_pkt.src, dst_port)
+
+                self.detect_dos(dpid, attacker_ip, victim_ip)
+                self.detect_port_scan(dpid, attacker_ip, victim_ip, dst_port)
 
         out = parser.OFPPacketOut(datapath=datapath,
                                   buffer_id=msg.buffer_id,
@@ -267,75 +270,79 @@ class SimpleSwitch13REST(app_manager.RyuApp):
                                   data=msg.data)
         datapath.send_msg(out)
 
-    def detect_port_scan(self, dpid, src_ip, dst_port):
+    def detect_port_scan(self, dpid, src_ip, victim_ip, dst_port):
         """
         Detect port scanning behavior based on SYN packets only.
+        Include victim_ip in the events.
         """
         now = time.time()
         record = self.scan_tracker.get(src_ip, {"ports": set(), "start_time": now, "detected": False})
 
-        # If already detected for this src, return
         if record["detected"]:
             return
 
         if now - record["start_time"] > self.PORT_SCAN_WINDOW:
-            # Reset if window expired
             record["ports"] = set()
             record["start_time"] = now
 
         record["ports"].add(dst_port)
-        self.logger.debug("Port scan check (SYN only): %s hitting ports %s", src_ip, record["ports"])
+        self.logger.debug("Port scan check: %s hitting ports %s", src_ip, record["ports"])
         self.scan_tracker[src_ip] = record
 
         if len(record["ports"]) > self.PORT_SCAN_THRESHOLD:
-            self.logger.warning("Port scan detected from %s (SYN-based)", src_ip)
+            self.logger.warning("Port scan detected from %s", src_ip)
             self.scan_alert_count += 1
             self.scan_events.append({
                 "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)),
-                "src_ip": src_ip
+                "src_ip": src_ip,
+                "victim_ip": victim_ip
             })
 
-            # Mark as detected and block
             record["detected"] = True
             self.scan_tracker[src_ip] = record
 
-            self.blocked_hosts.add(src_ip)
             if dpid in self.datapaths:
                 self.block_host(self.datapaths[dpid], src_ip)
 
-    def detect_dos(self, dpid, src_ip):
+    def detect_dos(self, dpid, src_ip, victim_ip):
         """
-        Detect DoS attacks based on SYN packet count in DOS_WINDOW.
-        Only SYN packets are counted to avoid labeling victims (responding with RST/ACK) as attackers.
+        Detect DoS attacks based on packets and bytes in DOS_WINDOW.
+        Include victim_ip in the events.
         """
         now = time.time()
-        record = self.dos_tracker.get(src_ip, {"count": 0, "start_time": now, "detected": False})
+        record = self.dos_tracker.get(src_ip, {"packets": 0, "bytes": 0, "start_time": now, "detected": False})
 
-        # If already detected, return
         if record["detected"]:
             return
 
         if now - record["start_time"] > self.DOS_WINDOW:
             # Reset if window expired
-            record["count"] = 0
-            record["start_time"] = now
+            record = {"packets": 0, "bytes": 0, "start_time": now, "detected": False}
 
-        record["count"] += 1
+        # Here we increment packets, and you could also increment bytes if you had that info:
+        # For simplicity, consider each packet as fixed size or increment packets only.
+        record["packets"] += 1
+        # If you want to count bytes too, you'd need access to the packet length.
+        # As an example, let's assume each packet is 100 bytes (just a placeholder).
+        # In practice, you'd parse packet length from msg.data or somewhere else.
+        pkt_len = len(msg.data) if 'msg' in locals() else 100
+        record["bytes"] += pkt_len
+
         self.dos_tracker[src_ip] = record
 
-        if record["count"] > self.DOS_THRESHOLD:
-            self.logger.warning("DoS attack detected from %s", src_ip)
+        if (record["packets"] > self.DOS_THRESHOLD_PACKETS or
+            record["bytes"] > self.DOS_THRESHOLD_BYTES):
+            self.logger.warning("DoS detected from IP %s on Datapath %s!", src_ip, dpid)
             self.dos_alert_count += 1
             self.dos_events.append({
                 "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)),
-                "src_ip": src_ip
+                "src_ip": src_ip,
+                "victim_ip": victim_ip
             })
 
-            # Mark as detected
             record["detected"] = True
             self.dos_tracker[src_ip] = record
 
-            self.blocked_hosts.add(src_ip)
             if dpid in self.datapaths:
                 self.block_host(self.datapaths[dpid], src_ip)
 
@@ -364,8 +371,7 @@ class StatsRestController(ControllerBase):
             "count": app.scan_alert_count,
             "events": app.scan_events
         }
-        body = json.dumps(data)
-        return Response(content_type='application/json; charset=UTF-8', body=body)
+        return Response(content_type='application/json; charset=UTF-8', body=json.dumps(data))
 
     @route('stats', '/stats/dos', methods=['GET'])
     def list_dos_stats(self, req, **kwargs):
@@ -374,5 +380,4 @@ class StatsRestController(ControllerBase):
             "count": app.dos_alert_count,
             "events": app.dos_events
         }
-        body = json.dumps(data)
-        return Response(content_type='application/json; charset=UTF-8', body=body)
+        return Response(content_type='application/json; charset=UTF-8', body=json.dumps(data))

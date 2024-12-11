@@ -2,6 +2,34 @@
 <html>
 <head>
     <title>Network Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        h1, h2, h3 {
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr:nth-child(even) {background-color: #f2f2f2;}
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+    </style>
 </head>
 <body>
     <h1>Network Dashboard</h1>
@@ -9,12 +37,13 @@
     <h2>Port Scan Detection</h2>
     <p>Total Scans Detected: {{ scan_stats.count }}</p>
     <h3>Recent Scan Events:</h3>
-    <table border="1">
-        <tr><th>Time</th><th>Source IP</th></tr>
+    <table>
+        <tr><th>Time</th><th>Attacker IP</th><th>Victim IP</th></tr>
         {% for event in scan_stats.events %}
         <tr>
             <td>{{ event.time }}</td>
             <td>{{ event.src_ip }}</td>
+            <td>{{ event.victim_ip }}</td>
         </tr>
         {% endfor %}
     </table>
@@ -22,26 +51,27 @@
     <h2>DoS Attack Detection</h2>
     <p>Total DoS Attacks Detected: {{ dos_stats.count }}</p>
     <h3>Recent DoS Events:</h3>
-    <table border="1">
-        <tr><th>Time</th><th>Source IP</th></tr>
+    <table>
+        <tr><th>Time</th><th>Attacker IP</th><th>Victim IP</th></tr>
         {% for event in dos_stats.events %}
         <tr>
             <td>{{ event.time }}</td>
             <td>{{ event.src_ip }}</td>
+            <td>{{ event.victim_ip }}</td>
         </tr>
         {% endfor %}
     </table>
 
     <h2>Flow Stats</h2>
-    {% for dpid, flows in flow_stats.items() %}
+    {% for dpid, flows in flow_stats|dictsort %}
         <h3>Switch {{ dpid }}</h3>
-        <table border="1">
+        <table>
             <tr>
-                <th>Match</th><th>Packets</th><th>Bytes</th><th>Duration(s)</th>
+                <th>IPv4 Source</th><th>Packets</th><th>Bytes</th><th>Duration(s)</th>
             </tr>
             {% for flow in flows %}
             <tr>
-                <td>{{ flow.match }}</td>
+                <td>{{ flow.ipv4_src }}</td>
                 <td>{{ flow.packet_count }}</td>
                 <td>{{ flow.byte_count }}</td>
                 <td>{{ flow.duration_sec }}.{{ flow.duration_nsec }}</td>
@@ -51,9 +81,9 @@
     {% endfor %}
 
     <h2>Port Stats</h2>
-    {% for dpid, ports in port_stats.items() %}
+    {% for dpid, ports in port_stats|dictsort %}
         <h3>Switch {{ dpid }}</h3>
-        <table border="1">
+        <table>
             <tr>
                 <th>Port</th><th>RX Packets</th><th>TX Packets</th><th>RX Bytes</th><th>TX Bytes</th><th>RX Dropped</th><th>TX Dropped</th><th>RX Errors</th><th>TX Errors</th>
             </tr>
