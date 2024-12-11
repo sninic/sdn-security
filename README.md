@@ -60,6 +60,9 @@ Launch the DoS attack in `h3` terminal against `h1 (10.0.0.1)`
 hping3 -S --flood -p 80 10.0.0.1
 ```
 
+<img width="696" alt="image" src="https://github.com/user-attachments/assets/ae53013e-e9b7-41a4-b9da-b4ceab34022f">
+
+
 You should see something like the below in Ryu Controller:
 ```
 DoS attack detected from 10.0.0.3 (packets in last interval: 268947)
