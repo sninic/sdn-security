@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Network Dashboard</title>
+</head>
+<body>
+    <h1>Network Dashboard</h1>
+
+    <h2>Port Scan Detection</h2>
+    <p>Total Scans Detected: {{ scan_stats.count }}</p>
+    <h3>Recent Scan Events:</h3>
+    <table border="1">
+        <tr><th>Time</th><th>Source IP</th></tr>
+        {% for event in scan_stats.events %}
+        <tr>
+            <td>{{ event.time }}</td>
+            <td>{{ event.src_ip }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>DoS Attack Detection</h2>
+    <p>Total DoS Attacks Detected: {{ dos_stats.count }}</p>
+    <h3>Recent DoS Events:</h3>
+    <table border="1">
+        <tr><th>Time</th><th>Source IP</th></tr>
+        {% for event in dos_stats.events %}
+        <tr>
+            <td>{{ event.time }}</td>
+            <td>{{ event.src_ip }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Flow Stats</h2>
+    {% for dpid, flows in flow_stats.items() %}
+        <h3>Switch {{ dpid }}</h3>
+        <table border="1">
+            <tr>
+                <th>Match</th><th>Packets</th><th>Bytes</th><th>Duration(s)</th>
+            </tr>
+            {% for flow in flows %}
+            <tr>
+                <td>{{ flow.match }}</td>
+                <td>{{ flow.packet_count }}</td>
+                <td>{{ flow.byte_count }}</td>
+                <td>{{ flow.duration_sec }}.{{ flow.duration_nsec }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endfor %}
+
+    <h2>Port Stats</h2>
+    {% for dpid, ports in port_stats.items() %}
+        <h3>Switch {{ dpid }}</h3>
+        <table border="1">
+            <tr>
+                <th>Port</th><th>RX Packets</th><th>TX Packets</th><th>RX Bytes</th><th>TX Bytes</th><th>RX Dropped</th><th>TX Dropped</th><th>RX Errors</th><th>TX Errors</th>
+            </tr>
+            {% for port in ports %}
+            <tr>
+                <td>{{ port.port_no }}</td>
+                <td>{{ port.rx_packets }}</td>
+                <td>{{ port.tx_packets }}</td>
+                <td>{{ port.rx_bytes }}</td>
+                <td>{{ port.tx_bytes }}</td>
+                <td>{{ port.rx_dropped }}</td>
+                <td>{{ port.tx_dropped }}</td>
+                <td>{{ port.rx_errors }}</td>
+                <td>{{ port.tx_errors }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% endfor %}
+</body>
+</html>
