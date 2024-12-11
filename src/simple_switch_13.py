@@ -23,7 +23,7 @@ class IPDoSDetectionSwitch(app_manager.RyuApp):
         self.malicious_ips = set()
 
         # Threshold for DoS detection
-        self.dos_threshold = 100
+        self.dos_threshold = 100000
 
         # Start monitoring thread
         self.monitor_thread = hub.spawn(self._monitor)
